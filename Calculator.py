@@ -1,7 +1,6 @@
 import math
-from PyQt6 import uic
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6 import uic
 from string import digits
 import sys
 
@@ -21,12 +20,14 @@ class Colorculator(QMainWindow):
         self.count_brackets = 0
 
     def buttons_num(self):
+        """Добавляет функцию numbers ко всем числам"""
         buttons = [self.num_0, self.num_1, self.num_2, self.num_3, self.num_4, self.num_5,
                    self.num_6, self.num_7, self.num_8,self.num_9]
         for b in buttons:
             b.clicked.connect(self.numbers)
 
     def buttons_symbols(self):
+        """Все функции и их кнопки"""
         buttons = [self.btn_divide, self.btn_multipy, self.btn_minus, self.btn_plus, self.btn_point,
                    self.btn_procent, self.btn_stepen,]
         for b in buttons:
@@ -44,10 +45,12 @@ class Colorculator(QMainWindow):
         self.btn_close.clicked.connect(self.main_brakets)
 
     def get_text_main_to_second(self):
+        """Из главного массива отображает в верхней строке все выражение"""
         text_s = ''.join([x if x not in self.main_symbols else ' ' + x + ' ' for x in self.count_mains])
         self.second_input.setText(text_s)
 
     def numbers(self):
+        """Функция для чисел"""
         num = self.sender().text()
         if self.count_mains[-1] not in (')', '!', ']'):
             if self.count_mains[0] == '0' and len(self.count_mains) == 1 or \
@@ -72,6 +75,7 @@ class Colorculator(QMainWindow):
             self.get_text_main_to_second()
 
     def symbols(self):
+        """Функция для арифметических знаков и точки"""
         if self.main_input.text() == 'Error':
             self.main_input.setText('0')
 
@@ -100,10 +104,8 @@ class Colorculator(QMainWindow):
                 self.count_mains.append(symbol)
                 self.get_text_main_to_second()
 
-            print(self.count_mains)
-
     def find_index_fisrt_bracets(self, start=-1, br='('):
-        """" для поиска последнего отрицательного числа, первой с конца ( """
+        """" для поиска первой с конца '(' или '[' скобок"""
         index_1 = 0
         for x in range(start, -len(self.count_mains) - 1, -1):
             if self.count_mains[x] == br:
@@ -112,7 +114,7 @@ class Colorculator(QMainWindow):
         return index_1
 
     def find_index_last_bracets(self, start=0):
-        """" для поиска последнего отрицательного числа, первой с конца ( """
+        """" для поиска первой с начала ')' """
         index_1 = 0
         for x in range(start, len(self.count_mains)):
             if self.count_mains[x] == ')':
@@ -150,26 +152,34 @@ class Colorculator(QMainWindow):
                         self.count_brackets -= 1
 
             self.get_text_main_to_second()
-            print('BRACET', self.count_brackets)
         except Exception as e:
             print(e)
 
     def more_firs_bracket(self, first=-1, br='(', br2=')'):
-        """ для нахождение последей открытой чкобки смотря на количество закрытых )) """
+        """ для нахождение последней открытой cкобки смотря на количество закрытых )) """
         index_bracket = self.find_index_fisrt_bracets(first, br)
         close_br = self.count_mains[index_bracket: first] if first != -1 else self.count_mains[index_bracket:]
         close_br = close_br.count(br2)
-        print('index', index_bracket)
-        print(close_br, 'close br')
         open_br = 1
 
         while open_br != close_br:
-            print('Cl', close_br, open_br)
             first = index_bracket - 1
             index_bracket = self.find_index_fisrt_bracets(first, br)
             open_br += 1
             close_br += self.count_mains[index_bracket:first].count(br2)
-            print(index_bracket)
+        return index_bracket
+
+    def more_last_bracket(self, first=0):
+        """ для нахождение последней открытой скобки смотря на количество закрытых )) """
+        index_bracket = self.find_index_last_bracets(first)
+        open_br = self.count_mains[first: index_bracket].count('(')
+        close_br = 1
+
+        while close_br != open_br:
+            first = index_bracket + 1
+            index_bracket = self.find_index_last_bracets(first)
+            close_br += 1
+            open_br += self.count_mains[first: index_bracket].count('(')
         return index_bracket
 
     def get_last_full_number(self):
@@ -178,7 +188,6 @@ class Colorculator(QMainWindow):
         # 1) для факториала положительного
         if self.count_mains[-1] == '!':
             if self.count_mains[-2] == ')':
-                print('factorial 111')
                 start = self.more_firs_bracket()
 
         # 2) для положительного числа
@@ -187,15 +196,11 @@ class Colorculator(QMainWindow):
 
         # 3) для sin/cos
         elif self.count_mains[-1] == ']':
-            print('SIN COS', self.more_firs_bracket(br='[', br2=']'))
-            # start = self.find_square_bracets() - 1
             start = self.more_firs_bracket(br='[', br2=']') - 1
-            print(start)
 
         # 4) для отрицательных. корня. main скобок
         elif self.count_mains[-1] == ')':
             start = self.more_firs_bracket()
-            print('START SCOOB', start)
             if start != -(len(self.count_mains)) and self.count_mains[start - 1] == 'K':
                 start -= 1
         # 5) для знака
@@ -203,11 +208,10 @@ class Colorculator(QMainWindow):
             start = -1
 
         element = self.count_mains[start:]
-        print('Element_start ', element)
         return start, element
 
     def minus_plus(self):
-        print('MAIN_COUNT', self.count_mains)
+        """Функция +- для смены знака числа"""
         if self.count_mains[-1] != '.':
             start, element = self.get_last_full_number()
 
@@ -254,9 +258,9 @@ class Colorculator(QMainWindow):
                     self.main_input.setText('(-' + ''.join(element) + ')')
 
         self.get_text_main_to_second()
-        print(self.count_mains)
 
     def factorial(self):
+        """Функция для поставки факториала 1.1"""
         if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
             start, element = self.get_last_full_number()
             self.count_mains[start:] = ['(', *element, ')', '!']
@@ -264,37 +268,23 @@ class Colorculator(QMainWindow):
             self.get_text_main_to_second()
 
     def for_factorial(self, index):
+        """Функция для вычисления факториала 1.2"""
         negative_start = -(len(self.count_mains) - index)
         start = self.more_firs_bracket(negative_start)
         self.count_mains[start: index + 1] = ['math.factorial', *self.count_mains[start:index]]
 
     @staticmethod
     def integer(num: str):
-        """Метод для корня и sin/cos; помогает сделать целым числом, дробные типа => 3.0 (для факториала)"""
+        """Метод для корня; помогает сделать целым числом, дробные типа => 3.0 (для факториала)"""
         num = float(num)
         return str(int(num)) if num % 1 == 0 else str(num)
 
-    def more_last_bracket(self, first=0):
-        """ для нахождение последей открытой чкобки смотря на количество закрытых )) """
-        index_bracket = self.find_index_last_bracets(first)
-        open_br = self.count_mains[first: index_bracket].count('(')
-        close_br = 1
-
-        while close_br != open_br:
-            first = index_bracket + 1
-            index_bracket = self.find_index_last_bracets(first)
-            close_br += 1
-            open_br += self.count_mains[first: index_bracket].count('(')
-            print(index_bracket)
-        return index_bracket
-
     def mat_sqrt(self):
+        """Функция для поставки корня 2.1"""
         if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
             start, element = self.get_last_full_number()
-            print('SQRT K', element)
 
             if element[0] == '(' and element[-1] in digits:
-                print('bracket first!!')
                 self.count_mains[start:] = [element[0], 'K', '(', *element[1:], ')']
                 self.main_input.setText(''.join(self.count_mains[start:]))
             else:
@@ -303,6 +293,7 @@ class Colorculator(QMainWindow):
             self.get_text_main_to_second()
 
     def for_sqrt(self, coren_in):
+        """Функция для вычисления корня 2.2"""
         try:
             index = self.more_last_bracket(coren_in)
 
@@ -314,15 +305,12 @@ class Colorculator(QMainWindow):
             number = self.integer(eval(''.join(['math.sqrt', '(', *self.count_mains[coren_in + 2: index], ')'])))
             self.count_mains[coren_in: index + 1] = [number]
         except SyntaxError:
-            print('errroorr')
-            # index = self.find_index_last_bracets(coren_in)
-        # self.count_mains[coren_in: index] = ['math.sqrt', '(', *self.count_mains[coren_in + 1: index], ')']
+            pass
 
     def trigonometric_functions(self):
-        """ Для синусов и косинусов"""
+        """ Для синусов и косинусов 3.1"""
         if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
             start, element = self.get_last_full_number()
-            print('SIN / COS', element)
             angle = self.sender().text()
 
             if element[0] == '(' and element[-1] in digits:
@@ -334,6 +322,7 @@ class Colorculator(QMainWindow):
             self.get_text_main_to_second()
 
     def for_trigonometric_functions(self, coren_in):
+        """Функция для вычисления синусов и косинусов 3.2"""
         index_1 = 0
         for x in range(coren_in + 1, len(self.count_mains)):
             if self.count_mains[x] == ']':
@@ -344,13 +333,14 @@ class Colorculator(QMainWindow):
         self.count_mains[coren_in - 1: index_1 + 1] = func
 
     def clear_C(self):
+        """Функция для отчистки всего поля"""
         self.main_input.setText('0')
         self.count_mains = ['0']
         self.second_input.setText('0')
-        # self.lst_brackets = []
         self.count_brackets = 0
 
     def clear_CE(self):
+        """Функция для стирания только одного символа или операции"""
         start, last = self.get_last_full_number()
         print('CE', start, last)
         if last[-1] in (*digits, '.', *self.main_symbols, '('):
@@ -394,24 +384,20 @@ class Colorculator(QMainWindow):
                     not (last[0] == '(' and last[1] != '-' and last[-1] == ')'):
                 self.main_input.setText(''.join(last))
 
-        print('BRACKET', self.count_brackets)
-
     def equally(self):
+        """Функция для вычисления результата"""
         try:
             if len(self.count_mains) > 1:
-                print(''.join(self.count_mains))
 
                 while '!' in self.count_mains:
                     fac_in = self.count_mains.index('!')
                     self.for_factorial(fac_in)
 
                 while 'K' in self.count_mains:
-                    print('передаем игдекс ', self.count_mains.index('K'))
                     coren_in = self.count_mains.index('K')
                     self.for_sqrt(coren_in)
 
                 while '[' in self.count_mains:
-                    print('передаем игдекс ', self.count_mains.index('['))
                     coren_in = self.count_mains.index('[')
                     self.for_trigonometric_functions(coren_in)
 
@@ -430,11 +416,7 @@ class Colorculator(QMainWindow):
                 if self.count_mains[0] == '-':
                     self.count_mains.insert(0, '(')
                     self.count_mains.append(')')
-                    text_s = ''.join(
-                        [x if x not in self.main_symbols else ' ' + x + ' ' for x in self.count_mains])
-                    self.second_input.setText(text_s)
-                print(res)
-                print(self.count_mains)
+                    self.get_text_main_to_second()
 
         except Exception as e:
             print(e)
