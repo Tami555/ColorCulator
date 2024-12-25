@@ -1,5 +1,6 @@
 import math
 from PyQt6 import uic
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from string import digits
 import sys
@@ -17,7 +18,7 @@ class Colorculator(QMainWindow):
 
         self.buttons_num()
         self.buttons_symbols()
-        self.btn_equally.clicked.connect(self.equally)
+        self.count_brackets = 0
 
     def buttons_num(self):
         buttons = [self.num_0, self.num_1, self.num_2, self.num_3, self.num_4, self.num_5,
@@ -31,57 +32,65 @@ class Colorculator(QMainWindow):
         for b in buttons:
             b.clicked.connect(self.symbols)
 
+        self.btn_equally.clicked.connect(self.equally)
         self.btn_c.clicked.connect(self.clear_C)
         self.btn_ce.clicked.connect(self.clear_CE)
         self.btn_plus_minus.clicked.connect(self.minus_plus)
         self.btn_factorial.clicked.connect(self.factorial)
-        self.btn_coren.clicked.connect(self.mat_root)
+        self.btn_coren.clicked.connect(self.mat_sqrt)
+        self.btn_sin.clicked.connect(self.trigonometric_functions)
+        self.btn_cos.clicked.connect(self.trigonometric_functions)
+        self.btn_open.clicked.connect(self.main_brakets)
+        self.btn_close.clicked.connect(self.main_brakets)
+
+    def get_text_main_to_second(self):
+        text_s = ''.join([x if x not in self.main_symbols else ' ' + x + ' ' for x in self.count_mains])
+        self.second_input.setText(text_s)
 
     def numbers(self):
         num = self.sender().text()
-        if self.count_mains[-1] not in (')', '!'):
-            if self.count_mains[0] == '0' and len(self.count_mains) == 1:
+        if self.count_mains[-1] not in (')', '!', ']'):
+            if self.count_mains[0] == '0' and len(self.count_mains) == 1 or \
+                    (len(self.count_mains) > 1 and self.count_mains[-1] == '0' and self.count_mains[-2] == '('):
                 self.main_input.setText('')
-                self.second_input.setText('')
                 self.count_mains.pop()
 
-            elif self.count_mains[-1] == '0' and self.count_mains[-2] in self.main_symbols:
-                self.main_input.setText('')
-                self.second_input.setText(self.second_input.text()[:-1])
+            elif self.count_mains[-1] == '0' and self.count_mains[-2] in (*self.main_symbols, 'K'):
+                if self.count_mains[-2] == 'K':
+                    self.main_input.setText(self.main_input.text()[:-1])
+                else:
+                    self.main_input.setText('')
                 self.count_mains.pop()
 
-            elif self.use_sign:
+            elif self.use_sign or (self.count_mains[-1] == '(' and self.main_input.text() == '0'):
                 self.main_input.setText('')
                 self.use_sign = False
 
-            text = self.main_input.text()
-            s_text = self.second_input.text()
-
-            self.main_input.setText(text + num)
-            self.second_input.setText(s_text + num)
+            text_m = self.main_input.text()
+            self.main_input.setText(text_m + num)
             self.count_mains.append(num)
+            self.get_text_main_to_second()
 
     def symbols(self):
-        if self.main_input.text() == 'ERROR':
+        if self.main_input.text() == 'Error':
             self.main_input.setText('0')
 
         last = self.count_mains[-1]
-        if (last in digits) or last in ('', ')', '!') and last != '.':
+        if (last in digits) or last in ('', ')', '!', ']') and last != '.':
             self.use_sign = True
 
             symbol = self.sender().text()
-            text = self.second_input.text()
-
             if symbol == '.':
+                text_s = self.second_input.text()  # чтобы было в моменте
                 text_m = self.main_input.text()
-                if '.' not in text_m and self.count_mains[-1] not in (')', '!'):
+
+                if '.' not in text_m and self.count_mains[-1] not in (')', '!', ']'):
                     self.main_input.setText(text_m + symbol)
-                    self.second_input.setText(text + symbol)
+                    self.second_input.setText(text_s + symbol)
                     self.count_mains.append(symbol)
                 self.use_sign = False
 
             else:
-                self.second_input.setText(text + ' ' + symbol + ' ')
                 if symbol == '÷':
                     symbol = '/'
                 elif symbol == 'x':
@@ -89,198 +98,309 @@ class Colorculator(QMainWindow):
                 elif symbol == '^^':
                     symbol = '**'
                 self.count_mains.append(symbol)
+                self.get_text_main_to_second()
+
             print(self.count_mains)
 
-    def find_index_fisrt_bracets(self):
+    def find_index_fisrt_bracets(self, start=-1, br='('):
         """" для поиска последнего отрицательного числа, первой с конца ( """
         index_1 = 0
-        for x in range(-1, -len(self.count_mains) - 1, -1):
-            if self.count_mains[x] == '(':
+        for x in range(start, -len(self.count_mains) - 1, -1):
+            if self.count_mains[x] == br:
                 index_1 = x
                 break
         return index_1
 
-    def find_last_number(self, start):
+    def find_index_last_bracets(self, start=0):
+        """" для поиска последнего отрицательного числа, первой с конца ( """
+        index_1 = 0
+        for x in range(start, len(self.count_mains)):
+            if self.count_mains[x] == ')':
+                index_1 = x
+                break
+        return index_1
+
+    def find_last_number(self, start=-1):
         """" для нахождения последнего числа от определ момента (с конца в начало <<-) """
         index_1 = -1
         for x in range(start, -len(self.count_mains) - 1, -1):
-            if self.count_mains[x] in self.main_symbols and x != -len(self.count_mains):
+            if self.count_mains[x] in (*self.main_symbols, '(') and x != -len(self.count_mains):
                 index_1 = x
                 break
         return index_1 + 1
 
-    def find_first_number(self, start):
-        """" для  нахождения первого числа от определ момента (из начала в конец ->> ) """
-        index = len(self.count_mains)
-        for x in range(start + 1, len(self.count_mains)):
-            if self.count_mains[x] in (*self.main_symbols, ')'):
-                index = x
-                break
-        return index
-
-    def minus_plus(self):
-        fact = False
-        if self.count_mains[-1] != '.':
-            print('+-', self.count_mains)
-
-            if self.count_mains[-1] == '!' and self.count_mains[-2] == ')':
-                i = self.find_index_fisrt_bracets()
-                element = self.count_mains[i + 1:-2]
-                fact = True
-
-            elif self.count_mains[-1] == ')' or (self.count_mains[-1] == '!' and self.count_mains[-2] == ')'):
-                i = self.find_index_fisrt_bracets()
-                element = self.count_mains[i + 1:-1]
-
-            else:
-                i = self.find_last_number(-1)
-                element = self.count_mains[i:]
-
-            text_m = self.main_input.text()
-
-            if element[-1] == '!':
-                element = element[:-1]
-                text_m = text_m[:-1]
-                fact = True
-            print('Element_start ', element)
-
-            if self.count_mains[-1] in self.main_symbols:
-                print('yes1')
-                sign = element[-1]
-                if sign in ('-', '+'):
-                    element[-1] = '+' if element[-1] == '-' else '-'
-                elif sign in ('*', '/'):
-                    element[-1] = '*' if element[-1] == '/' else '/'
-
-            elif (element[0] in tuple('123456789')) or (element[0] == '0' and '.' in element[1:]) or element[0] == 'K':
-                print('yes2')
-                element = '(-' + ''.join(element) + ')'
-                text_m = '-' + text_m
-                if fact:
-                    element += '!'
-                    text_m += '!'
-                print('scobcii', element)
-
-            elif element[0] == '-':
-                try:
-                    print('yes3')
-                    element = element[1:]
-                    text_m = text_m[1:]
-                    if fact:
-                        element.append('!')
-                        text_m.append('!')
-                except Exception as e:
-                    print(e)
-
-            self.count_mains[i:] = element
-            text_s = ''.join([x if x not in self.main_symbols else ' ' + x + ' ' for x in self.count_mains])
-
-            print('Element', element)
-            print('Text', text_m, ';', text_s)
-            print('COUNT', self.count_mains)
-
-            self.main_input.setText(text_m)
-            self.second_input.setText(text_s)
-
-    def factorial(self):
-        f = '!'
-        text_m = self.main_input.text()
-        text_s = self.second_input.text()
-        if text_m[0] != '0' and text_m[-1] != '.' and text_s[-1] not in self.main_symbols and text_s[-1] in digits:
-            self.main_input.setText(text_m + f)
-            self.second_input.setText(text_s + f)
-            self.count_mains.append(f)
-            print('Factorial', self.count_mains)
-
-    def for_factorial(self, index):
-        index_1 = self.find_last_number(-(len(self.count_mains) - index))
-        number = self.count_mains[index_1: index]
-        self.count_mains[index_1: index + 1] = f'math.factorial({''.join(number)})' if number[-1] != ')' else None
-        print('FACTORIAL WORK', self.count_mains)
-
-    def mat_root(self):
+    def main_brakets(self):
+        """ для поставления собственных скобок ()"""
+        bracket = self.sender().text()
         try:
-            if self.count_mains[-1] == ')' or (self.count_mains[-1] == '!' and self.count_mains[-2] == ')'):
-                i = self.find_index_fisrt_bracets()
+            if bracket == '(' and (self.count_mains[0] == '0' or self.count_mains[-1] in (*self.main_symbols, '(')):
+                if self.count_mains[0] == '0':
+                    self.main_input.setText('0')
+                    self.count_mains.pop()
+                else:
+                    self.main_input.setText('0')
+
+                self.count_brackets += 1
+                self.count_mains.append(bracket)
+
             else:
-                i = self.find_last_number(-1)
-            element = list(map(str, self.count_mains[i:]))
-            element.insert(0, 'K')
-            # sqrt \u221a "√"
-            text_m = self.main_input.text()
-            text_s = self.second_input.text()
-            if text_m[-1] != '.' and text_s[-1] not in self.main_symbols and text_s[-1] in digits and text_m[0] != "K":
-                self.main_input.setText('K' + text_m)
-                self.second_input.setText(text_s[:i] + 'K' + text_s[i:])
-                self.count_mains[i:] = element
-            print('SQRT', element)
+                if bracket == ')' and self.count_brackets > 0:
+                    if self.count_mains[-1] not in (*self.main_symbols, '.'):
+                        self.count_mains.append(bracket)
+                        self.count_brackets -= 1
+
+            self.get_text_main_to_second()
+            print('BRACET', self.count_brackets)
         except Exception as e:
             print(e)
 
-    def for_root(self, coren_in):
-        index = self.find_first_number(coren_in)
-        number = self.count_mains[coren_in + 1: index]
-        self.count_mains[coren_in: index] = f'math.sqrt({''.join(number)})'
-        print('coreeen ', self.count_mains)
+    def more_firs_bracket(self, first=-1, br='(', br2=')'):
+        """ для нахождение последей открытой чкобки смотря на количество закрытых )) """
+        index_bracket = self.find_index_fisrt_bracets(first, br)
+        close_br = self.count_mains[index_bracket: first] if first != -1 else self.count_mains[index_bracket:]
+        close_br = close_br.count(br2)
+        print('index', index_bracket)
+        print(close_br, 'close br')
+        open_br = 1
+
+        while open_br != close_br:
+            print('Cl', close_br, open_br)
+            first = index_bracket - 1
+            index_bracket = self.find_index_fisrt_bracets(first, br)
+            open_br += 1
+            close_br += self.count_mains[index_bracket:first].count(br2)
+            print(index_bracket)
+        return index_bracket
+
+    def get_last_full_number(self):
+        """ возвращает последнее число со всеми скобками и т.д и т.п"""
+        start = 0
+        # 1) для факториала положительного
+        if self.count_mains[-1] == '!':
+            if self.count_mains[-2] == ')':
+                print('factorial 111')
+                start = self.more_firs_bracket()
+
+        # 2) для положительного числа
+        elif self.count_mains[-1] in digits:
+            start = self.find_last_number()
+
+        # 3) для sin/cos
+        elif self.count_mains[-1] == ']':
+            print('SIN COS', self.more_firs_bracket(br='[', br2=']'))
+            # start = self.find_square_bracets() - 1
+            start = self.more_firs_bracket(br='[', br2=']') - 1
+            print(start)
+
+        # 4) для отрицательных. корня. main скобок
+        elif self.count_mains[-1] == ')':
+            start = self.more_firs_bracket()
+            print('START SCOOB', start)
+            if start != -(len(self.count_mains)) and self.count_mains[start - 1] == 'K':
+                start -= 1
+        # 5) для знака
+        elif self.count_mains[-1] in self.main_symbols:
+            start = -1
+
+        element = self.count_mains[start:]
+        print('Element_start ', element)
+        return start, element
+
+    def minus_plus(self):
+        print('MAIN_COUNT', self.count_mains)
+        if self.count_mains[-1] != '.':
+            start, element = self.get_last_full_number()
+
+            may = True
+            if ((len(element) == 1 and element[0] == '0') or
+                    (element[0] == '0' and len(element) > 1 and not any([x in '123456789' for x in element[1:]])) or
+                    (len(element) > 1 and element[0] == '(' and element[1] == '0' and not
+                        any([x in '123456789' for x in element[2:]])) or
+                    (element[-1] == '(')):
+                may = False
+
+            # Начинаем преобразование
+            if may:
+                if element[0] in self.main_symbols:
+                    element = element[0]
+                    match element:
+                        case '-':
+                            element = '+'
+                        case '+':
+                            element = '-'
+                        case '*':
+                            element = '/'
+                        case '/':
+                            element = '*'
+                    self.count_mains[-1] = element
+
+                # либо отрицалка, main скобка, большой факториал
+                elif element[0] == '(':
+
+                    if element[1] == '-':
+                        self.count_mains[start:] = element[2:-1]
+                        self.main_input.setText(''.join(element[2:-1]))
+
+                    elif element[-1] in (')', '!'):
+                        self.count_mains[start:] = ['(', '-', *element, ')']
+                        self.main_input.setText('(-' + ''.join(element) + ')')
+
+                    elif element[-1] != ')':
+                        self.count_mains[start:] = [element[0], '(', '-', *element[1:], ')']
+                        self.main_input.setText(''.join(self.count_mains[start:]))
+
+                else:
+                    self.count_mains[start:] = ['(', '-', *element, ')']
+                    self.main_input.setText('(-' + ''.join(element) + ')')
+
+        self.get_text_main_to_second()
+        print(self.count_mains)
+
+    def factorial(self):
+        if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
+            start, element = self.get_last_full_number()
+            self.count_mains[start:] = ['(', *element, ')', '!']
+            self.main_input.setText('(' + ''.join(element) + ')!')
+            self.get_text_main_to_second()
+
+    def for_factorial(self, index):
+        negative_start = -(len(self.count_mains) - index)
+        start = self.more_firs_bracket(negative_start)
+        self.count_mains[start: index + 1] = ['math.factorial', *self.count_mains[start:index]]
+
+    @staticmethod
+    def integer(num: str):
+        """Метод для корня и sin/cos; помогает сделать целым числом, дробные типа => 3.0 (для факториала)"""
+        num = float(num)
+        return str(int(num)) if num % 1 == 0 else str(num)
+
+    def more_last_bracket(self, first=0):
+        """ для нахождение последей открытой чкобки смотря на количество закрытых )) """
+        index_bracket = self.find_index_last_bracets(first)
+        open_br = self.count_mains[first: index_bracket].count('(')
+        close_br = 1
+
+        while close_br != open_br:
+            first = index_bracket + 1
+            index_bracket = self.find_index_last_bracets(first)
+            close_br += 1
+            open_br += self.count_mains[first: index_bracket].count('(')
+            print(index_bracket)
+        return index_bracket
+
+    def mat_sqrt(self):
+        if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
+            start, element = self.get_last_full_number()
+            print('SQRT K', element)
+
+            if element[0] == '(' and element[-1] in digits:
+                print('bracket first!!')
+                self.count_mains[start:] = [element[0], 'K', '(', *element[1:], ')']
+                self.main_input.setText(''.join(self.count_mains[start:]))
+            else:
+                self.count_mains[start:] = ['K', '(', *element, ')']
+                self.main_input.setText('K' + '(' + ''.join(element) + ')')
+            self.get_text_main_to_second()
+
+    def for_sqrt(self, coren_in):
+        try:
+            index = self.more_last_bracket(coren_in)
+
+            if 'K' in self.count_mains[coren_in + 1: index]:
+                self.for_sqrt(self.count_mains.index('K', coren_in + 1))
+            elif any([x in self.count_mains[coren_in + 1: index] for x in ('sin', 'cos')]):
+                self.for_trigonometric_functions(self.count_mains.index('[', coren_in + 1))
+
+            number = self.integer(eval(''.join(['math.sqrt', '(', *self.count_mains[coren_in + 2: index], ')'])))
+            self.count_mains[coren_in: index + 1] = [number]
+        except SyntaxError:
+            print('errroorr')
+            # index = self.find_index_last_bracets(coren_in)
+        # self.count_mains[coren_in: index] = ['math.sqrt', '(', *self.count_mains[coren_in + 1: index], ')']
+
+    def trigonometric_functions(self):
+        """ Для синусов и косинусов"""
+        if self.count_mains[-1] not in ('.', *self.main_symbols, '('):
+            start, element = self.get_last_full_number()
+            print('SIN / COS', element)
+            angle = self.sender().text()
+
+            if element[0] == '(' and element[-1] in digits:
+                self.count_mains[start:] = [element[0], angle, '[', *element[1:], ']']
+                self.main_input.setText(''.join(self.count_mains[start:]))
+            else:
+                self.count_mains[start:] = [angle, '[', *element, ']']
+                self.main_input.setText(''.join([angle, '[', *element, ']']))
+            self.get_text_main_to_second()
+
+    def for_trigonometric_functions(self, coren_in):
+        index_1 = 0
+        for x in range(coren_in + 1, len(self.count_mains)):
+            if self.count_mains[x] == ']':
+                if x == len(self.count_mains) - 1 or self.count_mains[x + 1] in (*self.main_symbols, '))', ')'):
+                    index_1 = x
+                    break
+        func = [f"math.{self.count_mains[coren_in - 1]}(math.radians(", *self.count_mains[coren_in + 1: index_1], "))"]
+        self.count_mains[coren_in - 1: index_1 + 1] = func
 
     def clear_C(self):
         self.main_input.setText('0')
         self.count_mains = ['0']
         self.second_input.setText('0')
+        # self.lst_brackets = []
+        self.count_brackets = 0
 
     def clear_CE(self):
-        try:
-            last = self.count_mains[-1]
-            print('Last : ' + last)
+        start, last = self.get_last_full_number()
+        print('CE', start, last)
+        if last[-1] in (*digits, '.', *self.main_symbols, '('):
+            self.count_mains.pop()
+            if last[-1] not in self.main_symbols:
+                self.main_input.setText(self.main_input.text()[:-1])
 
-            if (len(self.count_mains) <= 1 or
-                    (self.count_mains[0] == '(' and self.count_mains.count('(') == 1 and self.count_mains[-1] == ')') or
-                    self.count_mains[0] == 'K' and all([x not in self.count_mains for x in self.main_symbols]) and
-                    self.count_mains[-1] != ')'):
-                self.clear_C()
-                return
+            if last[-1] == '(':
+                self.count_brackets -= 1
 
-            text2 = self.second_input.text()[:-1]
+        elif last[-1] == ']':
+            self.count_mains[start:] = last[2:-1]
+            self.main_input.setText(''.join(last[2:-1]))
 
-            if last in ('.', *digits, '!', 'K'):
-                text = self.main_input.text()[:-1]
-                self.main_input.setText(text)
-                self.count_mains = self.count_mains[:-1]
-                print(self.main_input.text())
+        elif last[-1] == ')':
 
-            elif last == ')':
-                self.main_input.setText('')
-                index_bracket = self.find_index_fisrt_bracets()
-                text2 = text2[:index_bracket - 1]
-                self.count_mains = self.count_mains[:index_bracket]
+            if last[0] == '(':
+                if last[1] != '-':
+                    self.count_mains.pop()
+                    self.count_brackets += 1
+                else:
+                    self.count_mains[start:] = last[2:-1]
+                    self.main_input.setText(''.join(last[2:-1]))
 
-            else:
-                text2 = self.second_input.text()[:-3]
-                self.count_mains = self.count_mains[:-1]
-                self.use_sign = False
+            elif last[0] == 'K':
+                self.count_mains[start:] = last[2:-1]
+                self.main_input.setText(''.join(last[2:-1]))
 
-            self.second_input.setText(text2)
-            print('Finish2:', self.count_mains)
+        elif last[-1] == '!':
+            self.count_mains[start:] = last[1:-2]
+            self.main_input.setText(''.join(last[1:-2]))
 
-            if (self.count_mains[-1] in digits or
-                    (self.count_mains[-1] == '!' and self.count_mains[-2] != ')')
-                    and self.main_input.text() == ''):
+        self.get_text_main_to_second()
+        if len(self.count_mains) == 0:
+            self.count_mains.append('0')
+            self.main_input.setText('0')
 
-                index_1 = self.find_last_number(-1)
-                print(index_1, self.count_mains[index_1:])
-                self.main_input.setText(''.join(self.count_mains[index_1:]))
+        elif self.main_input.text() == '':
+            start, last = self.get_last_full_number()
+            if last[0] not in self.main_symbols and last[-1] != '(' and\
+                    not (last[0] == '(' and last[1] != '-' and last[-1] == ')'):
+                self.main_input.setText(''.join(last))
 
-            elif self.count_mains[-1] == ')' and self.main_input.text() == '':
-                index_bracket = self.find_index_fisrt_bracets()
-                self.main_input.setText(''.join(self.count_mains[index_bracket + 1:-1]))
-
-        except Exception as e:
-            print(e)
+        print('BRACKET', self.count_brackets)
 
     def equally(self):
         try:
             if len(self.count_mains) > 1:
                 print(''.join(self.count_mains))
+
                 while '!' in self.count_mains:
                     fac_in = self.count_mains.index('!')
                     self.for_factorial(fac_in)
@@ -288,7 +408,12 @@ class Colorculator(QMainWindow):
                 while 'K' in self.count_mains:
                     print('передаем игдекс ', self.count_mains.index('K'))
                     coren_in = self.count_mains.index('K')
-                    self.for_root(coren_in)
+                    self.for_sqrt(coren_in)
+
+                while '[' in self.count_mains:
+                    print('передаем игдекс ', self.count_mains.index('['))
+                    coren_in = self.count_mains.index('[')
+                    self.for_trigonometric_functions(coren_in)
 
                 res = str(eval(''.join(self.count_mains)))
                 if len(res) > 10:
