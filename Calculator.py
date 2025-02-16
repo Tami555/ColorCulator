@@ -135,16 +135,18 @@ class Colorculator(QMainWindow):
         """ для поставления собственных скобок ()"""
         bracket = self.sender().text()
         try:
-            if bracket == '(' and (self.count_mains[0] == '0' or self.count_mains[-1] in (*self.main_symbols, '(')):
-                if self.count_mains[0] == '0':
+            if bracket == '(':
+                if self.count_mains[0] == '0' and len(self.count_mains) == 1:
                     self.main_input.setText('0')
                     self.count_mains.pop()
-                else:
+                    self.count_brackets += 1
+                    self.count_mains.append(bracket)
+
+                elif self.count_mains[-1] in (*self.main_symbols, '('):
                     self.main_input.setText('0')
-
-                self.count_brackets += 1
-                self.count_mains.append(bracket)
-
+                    self.count_brackets += 1
+                    self.count_mains.append(bracket)
+                
             else:
                 if bracket == ')' and self.count_brackets > 0:
                     if self.count_mains[-1] not in (*self.main_symbols, '.'):
